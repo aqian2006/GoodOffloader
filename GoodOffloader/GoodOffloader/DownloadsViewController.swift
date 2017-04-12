@@ -9,6 +9,7 @@
 import UIKit
 import SystemConfiguration
 import CoreTelephony
+import CoreLocation
 
 private let kDownloadingCellidentifier = "downloadingCellIdentifier"
 
@@ -17,9 +18,34 @@ extension String {
         let nsSt = self as NSString
         return nsSt.appendingPathComponent(path)
     }
+    func appendLineToURL(fileURL: URL) throws {
+            try (self + "\n").appendToURL(fileURL: fileURL)
+    }
+        
+    func appendToURL(fileURL: URL) throws {
+        let data = self.data(using: String.Encoding.utf8)!
+        try data.append(fileURL: fileURL)
+    }
 }
 
-class DownloadsViewController: UIViewController,UITableViewDataSource, UITableViewDelegate, GoodDownloadDelegate {
+extension Data {
+    func append(fileURL: URL) throws {
+        if let fileHandle = FileHandle(forWritingAtPath: fileURL.path) {
+            defer {
+                fileHandle.closeFile()
+            }
+            fileHandle.seekToEndOfFile()
+            fileHandle.write(self)
+        }
+        else {
+            try write(to: fileURL, options: .atomic)
+        }
+    }
+}
+
+
+class DownloadsViewController: UIViewController,UITableViewDataSource, UITableViewDelegate,
+    CLLocationManagerDelegate, GoodDownloadDelegate {
 
     
     // Keep track of the current (and probably past soon) downloads
@@ -30,23 +56,27 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
     let reachability = Reachability()!
 
     var isFirst: Bool = true
-
+    var isInit: Bool  = true
+    
     var downloadData: Data!
     var receivedBytes:Int64 = 0
     var count:Int = 0
     var estimatedRate:Float64 = 0.0
-    
+    var dataFilePathName:URL?
     var docPath : String?
+    var currentLocation: CLLocation?
+    var lastLocation: CLLocation?
     
+    @IBOutlet weak var labelDisplay: UILabel!
     let fileURL = NSURL(string: "http://download.thinkbroadband.com/20MB.zip")
     
     @IBOutlet weak var downloadingTableView: UITableView!
-    
+    var locationManager: CLLocationManager!
+
     var timer:Timer = Timer()
 
     override func viewDidLoad() {
         super.viewDidLoad()
-     //   self.progress.text="press download button to start"
         // Do any additional setup after loading the view, typically from a nib.
         
         let manager = FileManager()
@@ -58,8 +88,11 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
             print("\(path)")
         }
         
-        self.docPath = NSSearchPathForDirectoriesInDomains(.documentDirectory,.userDomainMask,true)[0]
+      //  self.docPath = NSSearchPathForDirectoriesInDomains(.documentDirectory,.userDomainMask,true)[0]
 
+        let dir: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).last! as URL
+        self.dataFilePathName = dir.appendingPathComponent("gpsap.csv")
+        
         let nib = UINib(nibName: "DownloadTableViewCell", bundle: nil)
         self.downloadingTableView.register(nib, forCellReuseIdentifier: kDownloadingCellidentifier)
         
@@ -76,8 +109,25 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
             print("could not start reachability notifier")
         }
         
+        if CLLocationManager.locationServicesEnabled() {
+            self.locationManager = CLLocationManager()
+            self.locationManager.delegate = self as CLLocationManagerDelegate
+            self.locationManager.startUpdatingLocation()
+        }
+        
+        timer = Timer.scheduledTimer(timeInterval: 20, target:self, selector:#selector(DownloadsViewController.saveGPSandAPInfo), userInfo:nil, repeats:true)
+
     }
 
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        
+        if CLLocationManager.locationServicesEnabled() {
+            locationManager.stopUpdatingLocation()
+        }
+        self.timer.invalidate()
+    }
+    
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
     }
@@ -89,6 +139,18 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
             destinationVC.delegate = self
         }
     }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let newLocation = locations.last else {
+            return
+        }
+        self.currentLocation = newLocation
+        if self.isInit {
+            self.lastLocation = newLocation
+            self.isInit = false
+        }
+    }
+
     func onTimer(){
         
         self.count += 1
@@ -97,16 +159,16 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
         
         if(self.count < 2 ) {
             self.estimatedRate = Float64(self.receivedBytes) / Float64(self.count*10)
+            let alertController = UIAlertController(title: "Estimated Rate"
+                , message:"\(self.estimatedRate/1000) kbps"
+                , preferredStyle: UIAlertControllerStyle.alert)
+            let defaultAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+            
+            alertController.addAction(defaultAction)
+            present(alertController, animated: true, completion: nil)
         } else {
             timer.invalidate()
         }
-        let alertController = UIAlertController(title: "Estimated Rate"
-            , message:"\(self.estimatedRate/1000) kbps"
-            , preferredStyle: UIAlertControllerStyle.alert)
-        let defaultAction = UIAlertAction(title: "OK", style: .default, handler: nil)
-        
-        alertController.addAction(defaultAction)
-        present(alertController, animated: true, completion: nil)
         
     }
     @IBAction func start(_ sender: UIButton) {
@@ -180,6 +242,7 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
     {
         // notification.object will be a 'Reachability' object that you can query
         // for the network status.
+/*
         let alertController = UIAlertController(title: "Network Status"
             , message:"WiFi: \(self.reachability.isReachableViaWiFi),  Cellular: \(reachability.isReachableViaWWAN)"
             , preferredStyle: UIAlertControllerStyle.alert)
@@ -187,6 +250,8 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
         
         alertController.addAction(defaultAction)
         present(alertController, animated: true, completion: nil)
+*/
+        
 /* 
           // This code juged what the radio access network technology is being used
         if reachability.isReachableViaWWAN {
@@ -201,14 +266,68 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
  */
     }
     
+    func saveGPSandAPInfo(){
+        var networkStatus:String
+        if reachability.isReachableViaWiFi{
+            networkStatus = "WiFi"
+        }
+        else if reachability.isReachableViaWWAN{
+            networkStatus = "Cellular"
+        }
+        else{
+            networkStatus = "NONE"
+        }
+        let latitude:String = "".appendingFormat("%.4f", self.currentLocation!.coordinate.latitude)
+        let longitude:String = "".appendingFormat("%.4f", self.currentLocation!.coordinate.longitude)
+
+        let distance = self.currentLocation?.distance(from: self.lastLocation!)
+        
+        let dataLine = Date().description.appending(",").appending(latitude).appending(",").appending(longitude).appending(",").appending(networkStatus).appending(",").appending((distance?.description)!)//.appending("\n")
+       // let dataLine = Date().description.appending(",\n").appending(latitude).appending(",\n").appending(longitude).appending(",\n").appending(networkStatus).appending(",\n").appending((distance?.description)!).appending("\n")
+
+        do{
+            try dataLine.appendLineToURL(fileURL: self.dataFilePathName! as URL)
+            try String(contentsOf: self.dataFilePathName! as URL, encoding: String.Encoding.utf8)
+        } catch {
+            print("Could not write to file")
+        }
+        
+//        self.dataFileHandle?.write(dataLine.data(using: .utf8)!)
+        
+        self.lastLocation = self.currentLocation
+ /*
+        let alertController = UIAlertController(title: "Save GPS and AP Info"
+            , message:dataLine
+            , preferredStyle: UIAlertControllerStyle.alert)
+        let defaultAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+        
+        alertController.addAction(defaultAction)
+        present(alertController, animated: true, completion: nil)
+*/
+        if isFirst {
+            self.labelDisplay.text = dataLine
+            self.labelDisplay.textColor = UIColor.red
+            isFirst = false
+        } else {
+            self.labelDisplay.text = dataLine
+            self.labelDisplay.textColor = UIColor.white
+            isFirst = true
+        }
+    }
+    
+    func estimateDownloadingRate(){
+        let fileForTest = "http://download.thinkbroadband.com/5MB.zip"
+        self.addDownloadWithURL(url: NSURL(string:fileForTest), name: nil)
+    }
+    
     func addDownloadWithURL(url: NSURL?, name: String?) {
         let download = self.manager.downloadFileAtURL(url: url!, toDirectory: nil, withName: name, andDelegate: self)
 
         // Stop all the other timer
-        timer.invalidate()
+    //    timer.invalidate()
         
         // execute the handler for every 10 seconds
-        timer = Timer.scheduledTimer(timeInterval: 10, target:self, selector:#selector(DownloadsViewController.onTimer), userInfo:nil, repeats:true)
+   //     timer = Timer.scheduledTimer(timeInterval: 10, target:self, selector:#selector(DownloadsViewController.onTimer), userInfo:nil, repeats:true)
 
         self.downloads.append(download)
         print("DownlaodsViewController/addDownloadWithURL url:\(url)")
@@ -275,6 +394,18 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
     // For UITableViewDelegate
     func tableView(_ tableView: UITableView,heightForRowAt indexPath: IndexPath) -> CGFloat{
         return 90
+    }
+    
+    //For CLLocation​Manager​Delegate
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        switch status {
+        case .notDetermined:
+            locationManager.requestWhenInUseAuthorization()
+        case .restricted, .denied:
+            break
+        case .authorizedAlways, .authorizedWhenInUse:
+            break
+        }
     }
     
     // For GoodDownloadDelegate

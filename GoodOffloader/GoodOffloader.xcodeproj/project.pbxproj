@@ -21,6 +21,7 @@
 		F3E075731E96B3A300F1CC67 /* AddDownloadViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E075721E96B3A300F1CC67 /* AddDownloadViewController.swift */; };
 		F3E075761E97463E00F1CC67 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = F3E075741E97463E00F1CC67 /* Main.storyboard */; };
 		F3E075781E97852F00F1CC67 /* Reachability.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E075771E97852F00F1CC67 /* Reachability.swift */; };
+		F3E0757D1E99186700F1CC67 /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F3E0757C1E99186700F1CC67 /* CoreLocation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +41,7 @@
 		F3E075721E96B3A300F1CC67 /* AddDownloadViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AddDownloadViewController.swift; sourceTree = "<group>"; };
 		F3E075751E97463E00F1CC67 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		F3E075771E97852F00F1CC67 /* Reachability.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Reachability.swift; sourceTree = "<group>"; };
+		F3E0757C1E99186700F1CC67 /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -47,6 +49,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F3E0757D1E99186700F1CC67 /* CoreLocation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -67,6 +70,7 @@
 			children = (
 				F3D5AAA61E91502200D56547 /* GoodOffloader */,
 				F3D5AAA51E91502200D56547 /* Products */,
+				F3E0757B1E99186700F1CC67 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -105,6 +109,14 @@
 				F39DF4691E9634840057EF7D /* DownloadTableViewCell.swift */,
 			);
 			name = TableViewCell;
+			sourceTree = "<group>";
+		};
+		F3E0757B1E99186700F1CC67 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F3E0757C1E99186700F1CC67 /* CoreLocation.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
