@@ -10,8 +10,15 @@ import UIKit
 import SystemConfiguration
 import CoreTelephony
 import CoreLocation
+import MessageUI
 
 private let kDownloadingCellidentifier = "downloadingCellIdentifier"
+private let LOG_FOLDER_NAME            = "log"
+private let LOG_FILE_NAME              = "log"
+private let LOG_FILE_EXT               = ".txt"
+private let OUTPUT_FILE_NAME           = "output"
+private let OUTPUT_FILE_EXT            = ".csv"
+private let CURRENT_DATE_TIME          = Date().description
 
 extension String {
     func stringByAppendingPathComponent(path: String) -> String {
@@ -59,11 +66,11 @@ func redirectLogToDocuments() {
         try FileManager.default.createDirectory(atPath: pathForLog, withIntermediateDirectories: false, attributes: nil)
     }
     catch let error as NSError{
-        print(error.localizedDescription)
+        print("[ERROR] \(error.localizedDescription)")
     }
     
     //log file name: log[current date and time].txt
-    let pathNameForLog = pathForLog.stringByAppendingPathComponent(path: "log".appending(Date().description).appending(".txt"))
+    let pathNameForLog = pathForLog.stringByAppendingPathComponent(path: LOG_FILE_NAME.appending(CURRENT_DATE_TIME).appending(LOG_FILE_EXT))
     
     //redirect the stderr and stdout to the file
     freopen(pathNameForLog.cString(using: String.Encoding.ascii)!, "a+", stderr)
@@ -72,7 +79,7 @@ func redirectLogToDocuments() {
 }
 
 class DownloadsViewController: UIViewController,UITableViewDataSource, UITableViewDelegate,
-    CLLocationManagerDelegate, GoodDownloadDelegate {
+    CLLocationManagerDelegate, MFMailComposeViewControllerDelegate, GoodDownloadDelegate {
 
     
     // Keep track of the current (and probably past soon) downloads
@@ -121,7 +128,8 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
       //  self.docPath = NSSearchPathForDirectoriesInDomains(.documentDirectory,.userDomainMask,true)[0]
 
         let dir: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).last! as URL
-        self.dataFilePathName = dir.appendingPathComponent("gpsap.csv")
+        let outFileName = OUTPUT_FILE_NAME.appending(CURRENT_DATE_TIME).appending(OUTPUT_FILE_EXT)
+        self.dataFilePathName = dir.appendingPathComponent(outFileName)
         
         let nib = UINib(nibName: "DownloadTableViewCell", bundle: nil)
         self.downloadingTableView.register(nib, forCellReuseIdentifier: kDownloadingCellidentifier)
@@ -136,7 +144,7 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
         do{
             try reachability.startNotifier()
         }catch{
-            print("could not start reachability notifier")
+            print("[ERROR] Could not start reachability notifier")
         }
         
         if CLLocationManager.locationServicesEnabled() {
@@ -158,6 +166,51 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
         self.timer.invalidate()
     }
     
+    @IBAction func onSendEmail(_ sender: UIButton) {
+        if !MFMailComposeViewController.canSendMail() {
+            let alertController = UIAlertController(title: "Error"
+                , message:"Mail services are not available"
+                , preferredStyle: UIAlertControllerStyle.alert)
+            let defaultAction = UIAlertAction(title: "OK", style: .default, handler: nil)
+            alertController.addAction(defaultAction)
+            present(alertController, animated: true, completion: nil)
+
+            print("[ERROR] Mail services are not available")
+            
+            return
+        }
+        sendEmail()
+    }
+    
+    func sendEmail() {
+        let composeVC = MFMailComposeViewController()
+        composeVC.mailComposeDelegate = self
+        // Configure the fields of the interface.
+        composeVC.setToRecipients(["aqian2006@gmail.com"])
+        composeVC.setSubject("[GoodOffloader] Output file")
+        composeVC.setMessageBody("Hello, this is output file from GoodOffloader!", isHTML: false)
+        
+        //send the ouput file as attachment
+//        if let fileData = NSData(contentsOfFile: (self.dataFilePathName?.absoluteString)!) {
+        if let fileData = NSData(contentsOf: self.dataFilePathName!) {
+        print("[INFO] File data loaded.")
+            composeVC.addAttachmentData(fileData as Data, mimeType: "text", fileName: OUTPUT_FILE_NAME+OUTPUT_FILE_EXT)
+        }else{
+            print("[ERROR] Failed to attach the output file in E-mail")
+        }
+        
+        // Present the view controller modally.
+        self.present(composeVC, animated: true, completion: nil)
+    }
+    
+    //For MFMailComposeViewControllerDelegate
+    func mailComposeController(_ controller: MFMailComposeViewController,
+                               didFinishWith result: MFMailComposeResult, error: Error?) {
+        // Check the result or perform other tasks.
+        // Dismiss the mail compose view controller.
+        controller.dismiss(animated: true, completion: nil)
+    }
+
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
     }
@@ -317,7 +370,7 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
 
         do{
             try dataLine.appendLineToURL(fileURL: self.dataFilePathName! as URL)
-            try String(contentsOf: self.dataFilePathName! as URL, encoding: String.Encoding.utf8)
+            //try String(contentsOf: self.dataFilePathName! as URL, encoding: String.Encoding.utf8)
         } catch {
             print("Could not write to file")
         }
