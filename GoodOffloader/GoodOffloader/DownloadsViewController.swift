@@ -43,6 +43,33 @@ extension Data {
     }
 }
 
+/**
+ This function redirect the standard error [NSLog()] and standard output [print()] to the log file
+ under document directory on the device.
+ 
+ */
+func redirectLogToDocuments() {
+    
+    let allPaths = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)
+    let documentsDirectory = allPaths.first!
+    let pathForLog = documentsDirectory.stringByAppendingPathComponent(path: "log")
+    
+    //creat the folder "log" under Document
+    do{
+        try FileManager.default.createDirectory(atPath: pathForLog, withIntermediateDirectories: false, attributes: nil)
+    }
+    catch let error as NSError{
+        print(error.localizedDescription)
+    }
+    
+    //log file name: log[current date and time].txt
+    let pathNameForLog = pathForLog.stringByAppendingPathComponent(path: "log".appending(Date().description).appending(".txt"))
+    
+    //redirect the stderr and stdout to the file
+    freopen(pathNameForLog.cString(using: String.Encoding.ascii)!, "a+", stderr)
+    freopen(pathNameForLog.cString(using: String.Encoding.ascii)!, "a+", stdout)
+
+}
 
 class DownloadsViewController: UIViewController,UITableViewDataSource, UITableViewDelegate,
     CLLocationManagerDelegate, GoodDownloadDelegate {
@@ -79,6 +106,8 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
+        redirectLogToDocuments()
+        
         let manager = FileManager()
         var paths: NSArray?
         print ("\(NSTemporaryDirectory())")
@@ -87,6 +116,7 @@ class DownloadsViewController: UIViewController,UITableViewDataSource, UITableVi
         for path in paths!{
             print("\(path)")
         }
+        NSLog("I have output log into device")
         
       //  self.docPath = NSSearchPathForDirectoriesInDomains(.documentDirectory,.userDomainMask,true)[0]
 
